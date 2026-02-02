@@ -1,0 +1,174 @@
+version: '3.8'
+
+services:
+  # ========================
+  # DATABASE - PostgreSQL
+  # ========================
+  postgres:
+    image: postgres:16-alpine
+    container_name: interviewpilot-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-interviewpilot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      POSTGRES_DB: ${POSTGRES_DB:-interviewpilot_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-interviewpilot}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - interviewpilot-network
+
+  # ========================
+  # CACHE - Redis
+  # ========================
+  redis:
+    image: redis:7-alpine
+    container_name: interviewpilot-redis
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - interviewpilot-network
+
+  # ========================
+  # VECTOR DB - Qdrant
+  # ========================
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: interviewpilot-qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    environment:
+      QDRANT__SERVICE__GRPC_PORT: 6334
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - interviewpilot-network
+
+  # ========================
+  # API GATEWAY - FastAPI
+  # ========================
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    container_name: interviewpilot-api
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-interviewpilot}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-interviewpilot_db}
+      - REDIS_URL=redis://redis:6379/0
+      - QDRANT_URL=http://qdrant:6333
+      - GO_SERVICE_URL=http://go-service:9000
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+    volumes:
+      - ./api-gateway:/app
+    networks:
+      - interviewpilot-network
+
+  # ========================
+  # GO MICROSERVICE
+  # ========================
+  go-service:
+    build:
+      context: ./go-service
+      dockerfile: Dockerfile
+    container_name: interviewpilot-go
+    env_file:
+      - .env
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-interviewpilot}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-interviewpilot_db}
+    ports:
+      - "9000:9000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./go-service:/app
+    networks:
+      - interviewpilot-network
+
+  # ========================
+  # FRONTEND - Next.js
+  # ========================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: interviewpilot-frontend
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api-gateway
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    networks:
+      - interviewpilot-network
+
+  # ========================
+  # NGINX REVERSE PROXY
+  # ========================
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    container_name: interviewpilot-nginx
+    ports:
+      - "80:80"
+    depends_on:
+      - api-gateway
+      - frontend
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      - interviewpilot-network
+
+# ========================
+# VOLUMES
+# ========================
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  qdrant_data:
+    driver: local
+
+# ========================
+# NETWORKS
+# ========================
+networks:
+  interviewpilot-network:
+    driver: bridge

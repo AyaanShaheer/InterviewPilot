@@ -1,0 +1,11 @@
+openai==1.10.0
+spacy==3.7.2
+sentence-transformers==2.3.1
+qdrant-client==1.7.3
+PyPDF2==3.0.1
+pydantic==2.5.3
+python-dotenv==1.0.0
+numpy==1.26.3
+torch==2.1.2
+transformers==4.36.2
+pytest==7.4.4
