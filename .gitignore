@@ -1,0 +1,53 @@
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+*.log.*
+
+# Docker
+*.pid
+*.seed
+*.pid.lock
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Secrets
+secrets/
+*.pem
+*.key
+*.crt
+!nginx/*.crt
+
+# Build outputs
+dist/
+build/
+*.pyc
+__pycache__/
+node_modules/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Kubernetes secrets
+k8s/secrets/*.yaml
+!k8s/secrets/README.md

@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.Python
+
+# ML Models
+models/downloads/
+*.pkl
+*.h5
+*.onnx
+*.pt
+*.pth
+!models/.gitkeep
+
+# Data
+data/raw/
+data/processed/
+*.csv
+*.parquet
+
+# Embeddings
+embeddings/
+vectors/
+
+# Qdrant data
+qdrant_data/
+
+# Logs
+*.log
